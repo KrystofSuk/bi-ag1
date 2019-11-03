@@ -1,3 +1,14 @@
 {
-    "C_Cpp.errorSquiggles": "Disabled"
+    "C_Cpp.errorSquiggles": "Disabled",
+    "files.associations": {
+        "array": "cpp",
+        "string": "cpp",
+        "string_view": "cpp",
+        "ostream": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "iostream": "cpp",
+        "*.tcc": "cpp",
+        "list": "cpp"
+    }
 }
