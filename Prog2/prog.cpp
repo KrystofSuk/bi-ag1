@@ -18,28 +18,30 @@ struct Data
     unsigned int ID;
     unsigned int Revenue;
 
-    bool Compare(const Data &x)
+    bool Compare(Data * x)
     {
-        if (Revenue <= x.Revenue)
+        if (Revenue < x->Revenue)
             return true;
+        else if (Revenue == x->Revenue)
+        {
+            if (ID < x->ID)
+                return true;
+        }
         return false;
     }
 };
 
 class MinHeap
 {
-    Data ** arr;
+    Data **arr;
     int capacity;
     int heap_size;
 
-    void SwapData(Data &a, Data &b)
+    void SwapData(Data ** a, Data ** b)
     {
-        unsigned int _ID = a.ID;
-        unsigned int _Revenue = a.Revenue;
-        a.Revenue = b.Revenue;
-        b.Revenue = _Revenue;
-        a.ID = b.ID;
-        b.ID = _ID;
+        Data *pSwap = *a;
+        *a = *b;
+        *b = pSwap;
     }
 
     void CheckIntegirty(int i)
@@ -47,13 +49,13 @@ class MinHeap
         int l = 2 * i + 1;
         int r = 2 * i + 2;
         int smallest = i;
-        if (l < heap_size && arr[l].Compare(arr[i]))
+        if (l < heap_size && arr[l]->Compare(arr[i]))
             smallest = l;
-        if (r < heap_size && arr[r].Compare(arr[smallest]))
+        if (r < heap_size && arr[r]->Compare(arr[smallest]))
             smallest = r;
         if (smallest != i)
         {
-            SwapData(arr[i], arr[smallest]);
+            SwapData(&arr[i], &arr[smallest]);
             CheckIntegirty(smallest);
         }
     }
@@ -63,24 +65,23 @@ public:
     {
         heap_size = 0;
         capacity = cap;
-        arr = new Data[cap];
+        arr = new Data*[cap];
     }
 
-    Data &GetMin()
+    Data * GetMin()
     {
-        Data &root = arr[0];
-        return root;
+        return arr[0];
     }
 
     Data *ExtractMin()
     {
         Data *root = new Data();
-        root->ID = arr[0].ID;
-        root->Revenue = arr[0].Revenue;
+        root->ID = arr[0]->ID;
+        root->Revenue = arr[0]->Revenue;
 
         if (heap_size != 1)
         {
-            SwapData(arr[0], arr[heap_size - 1]);
+            SwapData(&arr[0], &arr[heap_size - 1]);
         }
 
         heap_size--;
@@ -105,7 +106,7 @@ public:
         if (heap_size == capacity)
         {
             capacity *= 2;
-            Data *tmpArr = new Data[capacity];
+            Data **tmpArr = new Data*[capacity];
             for (int i = 0; i < capacity / 2; i++)
                 tmpArr[i] = arr[i];
             delete[] arr;
@@ -121,9 +122,9 @@ public:
         int i = heap_size - 1;
         arr[i] = k;
 
-        while (i != 0 && arr[i].Compare(arr[(i - 1) / 2]))
+        while (i != 0 && arr[i]->Compare(arr[(i - 1) / 2]))
         {
-            SwapData(arr[i], arr[(i - 1) / 2]);
+            SwapData(&arr[i], &arr[(i - 1) / 2]);
             i = (i - 1) / 2;
         }
     }
@@ -132,12 +133,24 @@ public:
     {
         delete[] arr;
     }
+
+    void Print()
+    {
+        cout << "------" << endl;
+        for (int i = 0; i < heap_size; i++)
+        {
+            cout << arr[i]->ID << "-" << arr[i]->Revenue << endl;
+        }
+    }
 };
 
 class CHolding
 {
     MinHeap **_chains;
+    LNode *used = nullptr;
     int _defaultCapacity = 8;
+
+    MinHeap * _nodes;
 
 public:
     CHolding()
@@ -155,40 +168,46 @@ public:
             if (_chains[i] != nullptr)
                 delete _chains[i];
         }
+        while (used != nullptr)
+        {
+            LNode *old = used;
+            used = used->Next;
+            delete old;
+        }
         delete[] _chains;
     }
     void Add(int chain, unsigned int id, unsigned int revenue)
     {
-        Data d;
-        d.ID = id;
-        d.Revenue = revenue;
-
         if (_chains[chain] == nullptr)
         {
             _chains[chain] = new MinHeap(8);
+            LNode *newNode = new LNode();
+            newNode->Val = chain;
+            newNode->Next = used;
+            used = newNode;
         }
-        
 
+        Data * d = new Data();
+        d->ID = id;
+        d->Revenue = revenue;
+        //cout << "Adding: " << chain << " - " << d.ID << " / " << d.Revenue << endl;
         _chains[chain]->Insert(d);
-        //cout << "Adding: " << chain << " - " << d.ID << " / " << d.Revenue << "  " << _revs[chain] << endl;
     }
     bool Remove(int chain, unsigned int &id)
     {
         if (_chains[chain] == nullptr)
         {
-            //cout << "N/A" << endl;
             return false;
         }
 
         if (_chains[chain]->CheckEmpty())
         {
-            //cout << "N/A" << endl;
             return false;
         }
 
         Data *r = _chains[chain]->ExtractMin();
         id = r->ID;
-        //cout << r->Revenue << "-" << r->ID << endl;
+        cout << r->Revenue << "-" << r->ID << endl;
         delete r;
 
         return true;
@@ -196,31 +215,43 @@ public:
     bool Remove(unsigned int &id)
     {
         int min = 0;
-        Data d;
-        Data minData;
-        minData.ID = 4294967295;
-        minData.Revenue = 4294967295;
+        Data * d = new Data();
+        Data * minData= new Data();
+        minData->ID = 4294967295;
+        minData->Revenue = 4294967295;
 
-        for (int i = 0; i < 10000; ++i)
+        LNode *use = used;
+        while (use != nullptr)
         {
-            if (_chains[i] == nullptr)
+            if (_chains[use->Val] == nullptr)
+            {
+                use = use->Next;
                 continue;
-            if (_chains[i]->CheckEmpty())
+            }
+            if (_chains[use->Val]->CheckEmpty())
+            {
+                use = use->Next;
                 continue;
-
-            d = _chains[i]->GetMin();
-            if (d.Revenue < minData.Revenue)
+            }
+            d = _chains[use->Val]->GetMin();
+            if (d->Compare(minData))
             {
                 minData = d;
-                min = i;
+                min = use->Val;
             }
             else
             {
-                if (d.Revenue == minData.Revenue)
+                if (d->Revenue == minData->Revenue)
                 {
-                    continue;
+                    if (d->ID < minData->ID)
+                    {
+                        minData = d;
+                        min = use->Val;
+                    }
                 }
             }
+
+            use = use->Next;
         }
 
         if (min == 0)
@@ -228,7 +259,6 @@ public:
 
         Data *r = _chains[min]->ExtractMin();
         id = r->ID;
-        //cout << r->Revenue << "-" << r->ID << endl;
         delete r;
         return true;
     }
@@ -246,37 +276,42 @@ private:
 #ifndef __PROGTEST__
 int main()
 {
-
     bool res;
     unsigned int id;
 
-    MinHeap * h = new MinHeap(10);
-    Data * d = new Data();
-    d->ID = 9;
-    d->Revenue = 5;
+    CHolding f8;
+    for (unsigned int i = 0; i < 10000; i++)
+    {
+        f8.Add(i % 10000, i % 100, i % 500);
+    }
 
-    h->Insert(*d);
-    cout << h->GetMin().ID << endl;
-    d->ID = 5;
-    cout << h->GetMin().ID << endl;
-    
+    for (unsigned int i = 0; i < 10000; i++)
+    {
+        f8.Remove(id);
+    }
+
+    cout << "ddd" << endl;
     //Ukazkovy vstup #1
     //-----------------
-/*
     CHolding f1;
     f1.Add(7, 2, 9);
     f1.Add(12, 4, 4);
     f1.Add(6, 15, 2);
     f1.Add(6, 9, 3);
     res = f1.Remove(12, id);
+    assert(res == true && id == 4);
     // res = true, id = 4
     res = f1.Remove(12, id);
+    assert(res == false && id == 4);
     // res = false, id = N/A
     res = f1.Remove(6, id);
+    assert(res == true && id == 15);
     // res = true, id = 15
     res = f1.Remove(6, id);
+    assert(res == true && id == 9);
     // res = true, id = 9
     res = f1.Remove(6, id);
+    assert(res == false && id == 9);
     // res = false, id = N/A
 
     //Ukazkovy vstup #2
@@ -285,20 +320,17 @@ int main()
     f2.Add(4, 2, 2);
     f2.Add(1, 4, 3);
     f2.Add(8, 9, 8);
+    cout << "----" << endl;
     res = f2.Remove(id);
+    assert(res == true && id == 2);
     // res = true, id = 2
     res = f2.Remove(id);
+    assert(res == true && id == 4);
     // res = true, id = 4
 
     //Ukazkovy vstup #3
     //-----------------
     CHolding f3;
-    for (int i = 1; i < 10000000; i++){
-        f3.Add(i % 100 + 10, 101, i);
-    }
-    for (int i = 1; i < 10000000; i++){
-        f3.Remove(id);
-    }
     f3.Add(10, 101, 9);
     f3.Add(10, 102, 8);
     f3.Add(10, 103, 7);
@@ -314,30 +346,42 @@ int main()
     f3.Add(30, 303, 7);
     f3.Add(30, 304, 6);
     f3.Add(30, 305, 5);
-
     res = f3.Remove(id);
     // res = true, id = 105
+    assert(res == true && id == 105);
     res = f3.Remove(id);
     // res = true, id = 205
+    assert(res == true && id == 205);
     res = f3.Remove(id);
     // res = true, id = 305
+    assert(res == true && id == 305);
     res = f3.Remove(id);
     // res = true, id = 104
+    assert(res == true && id == 104);
     res = f3.Remove(id);
     // res = true, id = 204
+    assert(res == true && id == 204);
     res = f3.Remove(id);
     // res = true, id = 304
+    assert(res == true && id == 304);
     res = f3.Remove(id);
     // res = true, id = 103
+    assert(res == true && id == 103);
     res = f3.Remove(id);
     // res = true, id = 203
+    assert(res == true && id == 203);
     res = f3.Remove(id);
     // res = true, id = 303
+    assert(res == true && id == 303);
     res = f3.Remove(id);
     // res = true, id = 102
+    assert(res == true && id == 102);
     res = f3.Remove(id);
     // res = true, id = 202
-
+    assert(res == true && id == 202);
+    res = f3.Remove(id);
+    // res = true, id = 302
+    assert(res == true && id == 302);
     /*
     //Ukazkovy vstup #4
     //-----------------
